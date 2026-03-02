@@ -12,7 +12,7 @@ class ComplianceIssue(TypedDict):
     
 # Define the global graph state
 
-class VideoAudioState(TypedDict):
+class VideoAuditState(TypedDict):
     """Defines the data schema for langgraph execution content
         Main container : Holds all the info about the audit
         URL --->>> Final Report
