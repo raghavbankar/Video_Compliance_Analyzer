@@ -35,9 +35,8 @@ def index_video_node(state:VideoAuditState) -> Dict[str,Any]:
     try:
         vi_service=VideoIndexerService()
         #download yt-dip
-        if "youtube.com" in video_url or "youtube.be" in video_url:
-            local_path = vi_service.download_youtube_video(video_url,output_path=local_filename)
-            
+        if "youtube.com" in video_url or "youtu.be" in video_url:
+            local_path = vi_service.download_youtube_video(url=video_url,output_path=local_filename)
         else:
             raise Exception("Please provide a valid Youtube URL for this test")
         
@@ -52,13 +51,13 @@ def index_video_node(state:VideoAuditState) -> Dict[str,Any]:
         #wait
         #pauses the code for moving futher till the video indexer completes its tasks
         raw_insights=vi_service.wait_for_processing(azure_video_id)
-
         #extract
+        logger.info("---Getting the cleaned data Extract Data module")
         clean_data = vi_service.extract_data(raw_insights)
         logger.info("----[NODE: Indexer] Extraction Complete ---------")
         return clean_data
     except Exception as e:
-        logger.error(f"Video Indexer Failed : {e}")
+        logger.error(f"Video Indexer Failed : {[str(e)]}")
         return{
             "errors" : [str(e)],
             "final_status": "FAIL",

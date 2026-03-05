@@ -20,7 +20,7 @@ def create_graph():
     workflow = StateGraph(VideoAuditState)
     #add the nodes
     workflow.add_node("indexer",index_video_node)
-    workflow.add_node("Auditor",audio_content_node)
+    workflow.add_node("auditor",audio_content_node)
     
     #define the entry point
     workflow.set_entry_point("indexer")

@@ -8,7 +8,13 @@ import logging
 import requests
 import yt_dlp  ## used to download the yt video
 from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential
 
+#from azure.identity import InteractiveBrowserCredential
+
+
+from dotenv import load_dotenv
+load_dotenv()
 logger = logging.getLogger("Video-Indexer")
 
 class VideoIndexerService:
@@ -19,8 +25,8 @@ class VideoIndexerService:
         self.subscription_id=os.getenv("AZURE_SUBSCRIPTION_ID")
         self.resource_group=os.getenv("AZURE_RESOURCE_GROUP")
         self.vi_name=os.getenv("AZURE_VI_NAME","VideoComplianceVideoIndexer")
-        self.credential=DefaultAzureCredential()
-    
+        self.credential = AzureCliCredential()
+            
     #security authentication
     #authorization for azure 2 Level Security
     def get_access_token(self):
@@ -59,13 +65,17 @@ class VideoIndexerService:
         """
         logger.info(f"Downloading Youtube Video: {url}")
         
-        ydl_opts={
-            "format":'best[ext=mp4]',
-            "outtmpl":output_path,
-            "quiet" : True,
-            "overwrites" : True
-        }
-        
+        ydl_opts = {
+         'format': 'best',
+         'outtmpl': output_path, # output template
+         'quiet': False,
+         'no_warnings': False,
+    # Add these options:
+         'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+         'http_headers': {
+         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+}  
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
@@ -99,6 +109,8 @@ class VideoIndexerService:
             
         if response.status_code != 200:
             raise Exception(f"Azure Upload Failed : {response.text}")
+        
+        return response.json().get("id")
             
     def wait_for_processing(self,video_id):
         logger.info(f"Waiting for the video {video_id} to process .....")
@@ -106,12 +118,11 @@ class VideoIndexerService:
             arm_token= self.get_access_token()
             vi_token = self.get_account_token(arm_token)
          
-            url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos"
+            url = f"https://api.videoindexer.ai/{self.location}/Accounts/{self.account_id}/Videos/{video_id}/Index"
             params ={"accessToken" : vi_token}
             response = requests.get(url,params=params)
-            data= response.json
-            
-            state = data.get("status")
+            data= response.json()
+            state = data.get("state")
             if state == "Processed":
                 return data
             elif state == "Failed":
@@ -129,7 +140,7 @@ class VideoIndexerService:
         transcript_lines =[]
         for v in vi_json.get("videos",[]):
             for insight in v.get("insights",{}).get("transcript",[]):
-                transcript_lines.appen(insight.get("text"))
+                transcript_lines.append(insight.get("text"))
                 
         ocr_lines=[]
         for v in vi_json.get("videos",[]):
@@ -140,7 +151,7 @@ class VideoIndexerService:
             "transcript" : " ".join(transcript_lines),
             "ocr_text" : ocr_lines,
             "video_metadata" : {
-                "duration" : vi_json.get("summarizedInsights",{}).get("duration"),
+                "duration" : vi_json.get("summarizedInsights",{}).get("duration").get("seconds"),
                 "platform" : "youtube"
             }
         }
